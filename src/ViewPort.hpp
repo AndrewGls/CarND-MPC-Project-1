@@ -1,23 +1,37 @@
 //======================================================================================================================
-#ifndef MPC_H
-#define MPC_H
+#ifndef ViewPort_hpp
+#define ViewPort_hpp
 //======================================================================================================================
-#include <vector>
+#include <string>
 #include "Eigen-3.3/Eigen/Core"
+class TColor;
 //======================================================================================================================
 
-class MPC
+class ViewPort
 {
 public:
-  MPC();
+  ViewPort(int width, int height, const std::string& aDisplayName);
+  ~ViewPort();
 
-  virtual ~MPC();
+  int Width() const;
+  int Height() const;
 
-  // Solve the model given an initial state and polynomial coefficients.
-  // Return the first actuations.
-  std::vector<double> Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs);
+  void Fill(const TColor& aColor);
+  void DrawMarker(float aX, float aY, const TColor& aColor, int aThickness=1);
+  void DrawMarkers(const Eigen::MatrixXd& aCoords, const TColor& aColor, int aThickness=1);
+
+
+  void MoveTo(float aX, float aY);
+  void LineTo(float aX, float aY, const TColor& aColor, int aThickness=1);
+
+  void Show();
+
+
+private:
+  class TImpl;
+  TImpl* mpImpl;
 };
 
 //======================================================================================================================
-#endif /* MPC_H */
+#endif //ViewPort_hpp
 //======================================================================================================================
