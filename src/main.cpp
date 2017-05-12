@@ -98,17 +98,16 @@ static Eigen::MatrixXd STransformWayPointsToVehicleCoordinates(
   double world_psi)
 {
   const int n = ptsx.size();
-  Eigen::MatrixXd TransformedWayPoints(n,2);
-  for (int i = 0; i < n; ++i)
-  {
-    const double px = ptsx[i];
-    const double py = ptsy[i];
-    // Transform the waypoints into the vehicle coordinate system:
-    TransformedWayPoints(i,0) = (px - world_x) * cos(-world_psi) - (py - world_y) * sin(-world_psi);
-    TransformedWayPoints(i,1) = -(px - world_x) * sin(-world_psi) - (py - world_y) * cos(-world_psi);
-  }
+  Eigen::MatrixXd Coords(n,2);
+  Coords << Eigen::Map<const Eigen::VectorXd>(ptsx.data(), ptsx.size()),
+            Eigen::Map<const Eigen::VectorXd>(ptsy.data(), ptsy.size());
 
-  return TransformedWayPoints;
+  Coords.rowwise() -= Eigen::RowVector2d(world_x, world_y);
+
+  Eigen::MatrixXd T(2,2);
+  T << cos(-world_psi), -sin(-world_psi), -sin(-world_psi), -cos(-world_psi);
+
+  return Coords * T.transpose();
 }
 
 
