@@ -9,8 +9,12 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "MPC.h"
 #include "json.hpp"
-#include "Color.hpp"
-#include "ViewPort.hpp"
+//======================================================================================================================
+#if defined(ENABLE_VISUALIZATION)
+  #include "Color.h"
+  #include "ViewPort.h"
+  #include "Drawing.h"
+#endif
 //======================================================================================================================
 // for convenience
 using json = nlohmann::json;
@@ -121,78 +125,6 @@ static Eigen::VectorXd STransformState(double px, double py, double psi, double 
 }
 
 
-//----------------------------------------------------------------------------------------------------------------------
-
-Eigen::MatrixXd STransformToScreenCoordinates(const ViewPort& vp, const Eigen::MatrixXd& aCoords)
-{
-  const int n = aCoords.rows();
-  Eigen::MatrixXd TransformedCoordinates(n, 2);
-  const double kScale = 4.0;
-  TransformedCoordinates.col(0) = vp.Width() / 2.0 * Eigen::VectorXd::Ones(n) + kScale * aCoords.col(1);
-  TransformedCoordinates.col(1) = vp.Height() * Eigen::VectorXd::Ones(n) - kScale * aCoords.col(0);
-  return TransformedCoordinates;
-}
-
-
-//----------------------------------------------------------------------------------------------------------------------
-
-static void SDrawWayPoints(ViewPort& vp, const Eigen::MatrixXd& aCoords)
-{
-  vp.DrawMarkers(STransformToScreenCoordinates(vp, aCoords), TColor::SColorGreen(), 4);
-}
-
-
-//----------------------------------------------------------------------------------------------------------------------
-
-static void SDrawFit(ViewPort& vp, const vector<double>& result)
-{
-  const int w = vp.Width();
-  const int h = vp.Height();
-  const double kScale = 4.0;
-  vp.MoveTo(w/2, h-1);
-
-
-  for (int i = 2; i < result.size(); i+=2)
-  {
-    const double x = w / 2 + kScale * result[i+1];
-    const double y = h - kScale * result[i];
-    const int kThickness = 2;
-    vp.LineTo(x, y, TColor::SColorYellow(), kThickness);
-  }
-}
-
-
-//----------------------------------------------------------------------------------------------------------------------
-
-static void SDrawSteering(ViewPort& vp, double delta, double v)
-{
-  double psi = 0;
-  double x = 0;
-  double y = 0;
-  const double Lf = 2.67;
-  const double dt = 0.05;
-  const int w = vp.Width();
-  const int h = vp.Height();
-  const double kScale = 4.0;
-  vp.MoveTo(w/2, h-1);
-
-  if (v < 0.25)
-  {
-    return;
-  }
-
-  double t = 0.0;
-
-  while (t < 1.0)
-  {
-      x += v * cos(psi) * dt;
-      y += v * sin(psi) * dt;
-      psi += v/Lf * delta * dt;
-      vp.LineTo(w/2 + kScale*y, h - kScale*x, TColor::SColorWhite(), 2);
-      t += dt;
-  }
-}
-
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -220,7 +152,6 @@ int main()
   // MPC is initialized here!
   MPC mpc;
 
-#define ENABLE_VISUALIZATION
 #if defined(ENABLE_VISUALIZATION)
   ViewPort vp(512,512,"MPC");
 #else
@@ -264,15 +195,15 @@ int main()
 
 #if defined(ENABLE_VISUALIZATION)
           vp.Fill(TColor::SColorGray(32));
-          SDrawWayPoints(vp, TransformedWayPoints);
+          NDrawing::SDrawWayPoints(vp, TransformedWayPoints);
           std::cout << TransformedWayPoints << std::endl;
-          SDrawFit(vp, result);
-          SDrawSteering(vp, steer_angle, v);
+          NDrawing::SDrawFit(vp, result);
+          NDrawing::SDrawSteering(vp, steer_angle, v);
           const double xt = 10.0;
           const double yt = 10.0;
           Eigen::MatrixXd c(1,2);
           c << xt,yt;
-          vp.DrawMarkers(STransformToScreenCoordinates(vp, c), TColor::SColorRed(), 4);
+          vp.DrawMarkers(NDrawing::STransformToScreenCoordinates(vp, c), TColor::SColorRed(), 4);
           vp.Show();
 #endif
 
