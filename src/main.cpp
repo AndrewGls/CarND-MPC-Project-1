@@ -104,7 +104,7 @@ static Eigen::MatrixXd STransformWayPointsToVehicleCoordinates(
 
   Coords.rowwise() -= Eigen::RowVector2d(world_x, world_y);
 
-  Eigen::MatrixXd T(2,2);
+  Eigen::Matrix2d T;
   T << cos(-world_psi), -sin(-world_psi), -sin(-world_psi), -cos(-world_psi);
 
   return Coords * T.transpose();
