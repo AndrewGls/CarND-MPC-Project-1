@@ -3,3 +3,8 @@ build
 tags
 .editorconfig
 .DS_Store
+.idea
+cmake-build-debug
+MPC Project Mac desktop Universal.app
+simulator.app
+term2_sim.app

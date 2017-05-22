@@ -6,8 +6,8 @@
 //======================================================================================================================
 using CppAD::AD;
 //======================================================================================================================
-size_t N = 25;
-double dt = 0.05;
+size_t N = 15;
+double dt = 0.10;
 const double Lf = 2.67;
 //======================================================================================================================
 const int idx_x = 0;
@@ -53,8 +53,13 @@ public:
     // Minimize the use of actuators.
     for (int i = 0; i < N - 1; i++)
     {
-      fg[0] += CppAD::pow(vars[idx_delta + i], 2);
-      fg[0] += CppAD::pow(vars[idx_a + i], 2);
+      const double kSteeringPenaltyFactor = 125;
+      // The following value could be used for ref_v = 80:
+      // const double kSteeringPenaltyFactor = 50000;
+      // The following value could be used for ref_v = 100:
+      //const double kSteeringPenaltyFactor = 100000;
+      fg[0] += kSteeringPenaltyFactor * CppAD::pow(vars[idx_delta + i], 2);
+      fg[0] += 1.0 * CppAD::pow(vars[idx_a + i], 2);
     }
 
     // Minimize the value gap between sequential actuations.
@@ -163,7 +168,7 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
   // The upper and lower limits of delta are set to -25 and 25
   // degrees (values in radians).
   // NOTE: Feel free to change this to something else.
-  const double kDeltaMax = 15.0 * M_PI / 180.0;
+  const double kDeltaMax = 15 * M_PI / 180.0;
   for (int i = idx_delta; i < idx_a; i++)
   {
     vars_lowerbound[i] = -kDeltaMax;
@@ -175,7 +180,7 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
   for (int i = idx_a; i < kNumVars; i++)
   {
     vars_lowerbound[i] = -1.0;
-    vars_upperbound[i] = 0.4;
+    vars_upperbound[i] = 1.0;
   }
 
   // Lower and upper limits for the constraints
@@ -242,19 +247,12 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
   double delta = 0.0;
   double a = 0.0;
 
-#if true
-  int n_mean = 5;
+  int n_mean = 3;
   for (int i = 0; i < n_mean; i++)
   {
     delta += solution.x[idx_delta + i] / n_mean;
     a += solution.x[idx_a + i] / n_mean;
   }
-
-#else
-  const int idx = 3;
-  delta = solution.x[idx_delta + idx];
-  a = solution.x[idx_a + idx];
-#endif
 
   result.push_back(delta);
   result.push_back(a);

@@ -139,11 +139,85 @@ static double SCalcCTE(const Eigen::VectorXd& aCoeffs)
 static double SCalcOrientationError(const Eigen::VectorXd& aCoeffs)
 {
   const double f0 = aCoeffs(1);
-  return atan(f0);
+  return -atan(f0);
 }
 
+static void MyHandler(uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+uWS::OpCode opCode, MPC& mpc)
+{
+  // "42" at the start of the message means there's a websocket message event.
+  // The 4 signifies a websocket message
+  // The 2 signifies a websocket event
+  string sdata = string(data).substr(0, length);
+  //cout << sdata << endl;
+  if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2')
+  {
+    string s = hasData(sdata);
+    if (s != "")
+    {
+      auto j = json::parse(s);
+      string event = j[0].get<string>();
+      if (event == "telemetry") {
+        // j[1] is the data JSON object
+        const vector<double> ptsx = j[1]["ptsx"];
+        const vector<double> ptsy = j[1]["ptsy"];
+        const double py = j[1]["y"];
+        const double px = j[1]["x"];
+        const double psi = j[1]["psi"];
+        const double v = j[1]["speed"];
+
+        const auto TransformedWayPoints = STransformWayPointsToVehicleCoordinates(ptsx, ptsy, px, py, psi);
+        const auto coeffs = SFitPolynomial(TransformedWayPoints);
+        const double cte = SCalcCTE(coeffs);
+        const double epsi = SCalcOrientationError(coeffs);
+
+        Eigen::VectorXd state(6);
+        state << 0, 0, 0, v, cte, epsi;
+
+        const auto result = mpc.Solve(state, coeffs);
+        const double steer_angle = result[0];
+        const double steer_value = rad2deg(steer_angle) / 25;
+        const double throttle_value = result[1];
+
+
+#if defined(ENABLE_VISUALIZATION)
+        vp.Fill(TColor::SColorGray(32));
+          NDrawing::SDrawPolyFit(vp, coeffs);
+          NDrawing::SDrawWayPoints(vp, TransformedWayPoints);
+          NDrawing::SDrawFit(vp, result);
+          NDrawing::SDrawSteering(vp, steer_angle, v);
+          vp.Show();
+#endif
+
+        json msgJson;
+        msgJson["steering_angle"] = steer_value;
+        msgJson["throttle"] = throttle_value;
+        auto msg = "42[\"steer\"," + msgJson.dump() + "]";
+        //std::cout << msg << std::endl;
+        // Latency
+        // The purpose is to mimic real driving conditions where
+        // the car does actuate the commands instantly.
+        //
+        // Feel free to play around with this value but should be to drive
+        // around the track with 100ms latency.
+        //
+        // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
+        // SUBMITTING.
+        this_thread::sleep_for(chrono::milliseconds(100));
+        ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+      }
+    }
+    else
+    {
+      // Manual driving
+      std::string msg = "42[\"manual\",{}]";
+      ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+    }
+  }
+}
 
 //----------------------------------------------------------------------------------------------------------------------
+using namespace std::placeholders;
 
 int main()
 {
@@ -153,84 +227,12 @@ int main()
   MPC mpc;
 
 #if defined(ENABLE_VISUALIZATION)
-  ViewPort vp(512,512,"MPC");
+  ViewPort vp(512,480,"MPC");
 #else
   int vp;
 #endif
 
-  h.onMessage([&mpc, &vp](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
-                     uWS::OpCode opCode) {
-    // "42" at the start of the message means there's a websocket message event.
-    // The 4 signifies a websocket message
-    // The 2 signifies a websocket event
-    string sdata = string(data).substr(0, length);
-    //cout << sdata << endl;
-    if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
-      string s = hasData(sdata);
-      if (s != "") {
-        auto j = json::parse(s);
-        string event = j[0].get<string>();
-        if (event == "telemetry") {
-          // j[1] is the data JSON object
-          const vector<double> ptsx = j[1]["ptsx"];
-          const vector<double> ptsy = j[1]["ptsy"];
-          const double py = j[1]["y"];
-          const double px = j[1]["x"];
-          const double psi = j[1]["psi"];
-          const double v = j[1]["speed"];
-
-          const auto TransformedWayPoints = STransformWayPointsToVehicleCoordinates(ptsx, ptsy, px, py, psi);
-          const auto coeffs = SFitPolynomial(TransformedWayPoints);
-          const double cte = SCalcCTE(coeffs);
-          const double epsi = SCalcOrientationError(coeffs);
-
-          Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
-
-          const auto result = mpc.Solve(state, coeffs);
-          const double steer_angle = result[0];
-          const double steer_value = 180 * steer_angle / M_PI / 25;
-          const double throttle_value = result[1];
-
-
-#if defined(ENABLE_VISUALIZATION)
-          vp.Fill(TColor::SColorGray(32));
-          NDrawing::SDrawWayPoints(vp, TransformedWayPoints);
-          std::cout << TransformedWayPoints << std::endl;
-          NDrawing::SDrawFit(vp, result);
-          NDrawing::SDrawSteering(vp, steer_angle, v);
-          const double xt = 10.0;
-          const double yt = 10.0;
-          Eigen::MatrixXd c(1,2);
-          c << xt,yt;
-          vp.DrawMarkers(NDrawing::STransformToScreenCoordinates(vp, c), TColor::SColorRed(), 4);
-          vp.Show();
-#endif
-
-          json msgJson;
-          msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = throttle_value;
-          auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          //std::cout << msg << std::endl;
-          // Latency
-          // The purpose is to mimic real driving conditions where
-          // the car does actuate the commands instantly.
-          //
-          // Feel free to play around with this value but should be to drive
-          // around the track with 100ms latency.
-          //
-          // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
-          // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
-          ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-        }
-      } else {
-        // Manual driving
-        std::string msg = "42[\"manual\",{}]";
-        ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-      }
-    }
-  });
+  h.onMessage(std::bind(MyHandler, _1, _2, _3, _4, mpc));
 
   // We don't need this since we're not using HTTP but if it's removed the
   // program

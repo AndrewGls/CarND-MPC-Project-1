@@ -164,4 +164,22 @@ void ViewPort::LineTo(float aX, float aY, const TColor& aColor, int aThickness)
   mpImpl->LineTo(aX, aY, aColor, aThickness);
 }
 
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void ViewPort::DrawPolyLine(const Eigen::MatrixXd& aCoords, const TColor& aColor, int aThickness)
+{
+  for (int i=0; i < aCoords.rows(); ++i)
+  {
+    if (i == 0)
+    {
+      MoveTo(aCoords(i,0), aCoords(i,1));
+    }
+    else
+    {
+      LineTo(aCoords(i,0), aCoords(i,1), aColor, aThickness);
+    }
+  }
+}
+
 //======================================================================================================================

@@ -19,7 +19,7 @@ public:
   void Fill(const TColor& aColor);
   void DrawMarker(float aX, float aY, const TColor& aColor, int aThickness=1);
   void DrawMarkers(const Eigen::MatrixXd& aCoords, const TColor& aColor, int aThickness=1);
-
+  void DrawPolyLine(const Eigen::MatrixXd& aCoords, const TColor& aColor, int aThickness=1);
 
   void MoveTo(float aX, float aY);
   void LineTo(float aX, float aY, const TColor& aColor, int aThickness=1);

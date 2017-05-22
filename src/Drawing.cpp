@@ -21,7 +21,7 @@ Eigen::MatrixXd NDrawing::STransformToScreenCoordinates(const ViewPort& vp, cons
 
 void NDrawing::SDrawWayPoints(ViewPort& vp, const Eigen::MatrixXd& aCoords)
 {
-  vp.DrawMarkers(STransformToScreenCoordinates(vp, aCoords), TColor::SColorGreen(), 4);
+  vp.DrawMarkers(STransformToScreenCoordinates(vp, aCoords), TColor::SColorGreen(255), 4);
 }
 
 
@@ -39,8 +39,37 @@ void NDrawing::SDrawFit(ViewPort& vp, const std::vector<double>& result)
     const double x = w / 2 + kScale * result[i+1];
     const double y = h - kScale * result[i];
     const int kThickness = 2;
-    vp.LineTo(x, y, TColor::SColorYellow(), kThickness);
+    vp.LineTo(x, y, TColor::SColorRed(), kThickness);
   }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void NDrawing::SDrawPolyFit(ViewPort& vp, const Eigen::VectorXd& aCoeffs)
+{
+  std::vector<double> vector_x, vector_y;
+
+  const double delta_x = 4.0;
+  double x = 0.0;
+  double y = 0.0;
+
+  while (x <= 128.0 && fabs(y) <= 64.0)
+  {
+    y = 0;
+    for (int c = 0; c < aCoeffs.rows(); ++c)
+    {
+      y += aCoeffs[c] * pow(x, c);
+    }
+    x += delta_x;
+    vector_x.push_back(x);
+    vector_y.push_back(y);
+  }
+
+  Eigen::MatrixXd Coords(vector_x.size(), 2);
+  Coords << Eigen::Map<Eigen::VectorXd>(vector_x.data(), vector_x.size()),
+            Eigen::Map<Eigen::VectorXd>(vector_y.data(), vector_y.size());
+
+  vp.DrawPolyLine(STransformToScreenCoordinates(vp, Coords), TColor::SColorGreen(128), 2);
 }
 
 
@@ -70,7 +99,7 @@ void NDrawing::SDrawSteering(ViewPort& vp, double delta, double v)
     x += v * cos(psi) * dt;
     y += v * sin(psi) * dt;
     psi += v/Lf * delta * dt;
-    vp.LineTo(w/2 + kScale*y, h - kScale*x, TColor::SColorWhite(), 2);
+    vp.LineTo(w/2 + kScale*y, h - kScale*x, TColor::SColorGray(224), 2);
     t += dt;
   }
 }
